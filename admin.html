@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+<title>Ushu Music Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#0b0c0f;color:#fff;font-family:Arial;padding:20px}
+.box{background:#111;padding:20px;border-radius:10px;max-width:450px;margin:auto}
+input,button{width:100%;padding:10px;margin-top:10px;border-radius:8px;border:0}
+button{background:#00eaff;font-weight:bold;color:#022}
+#panel{display:none}
+</style>
+</head>
+<body>
+
+<div class="box" id="loginBox">
+<h2>🔐 Admin Login</h2>
+<input type="password" id="pass" placeholder="Enter Admin Password">
+<button onclick="checkPass()">Login</button>
+</div>
+
+<div class="box" id="panel">
+<h2>📤 Upload File</h2>
+<input type="file" id="fileInput" />
+<button onclick="uploadNow()">Upload</button>
+<p id="msg"></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDRie7jgZ663GR_qiRL-ZSuMapRCSVsncE",
+  authDomain: "ushu-music-site.firebaseapp.com",
+  projectId: "ushu-music-site",
+  storageBucket: "ushu-music-site.firebasestorage.app",
+  messagingSenderId: "1049429943344",
+  appId: "1:1049429943344:web:2266aaa2ad2342cf4479f5",
+  measurementId: "G-17TXD4QNVS"
+};
+
+const app = initializeApp(firebaseConfig);
+const storage = getStorage(app);
+
+window.checkPass = function(){
+  if(document.getElementById("pass").value === "12345"){
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("panel").style.display="block";
+  } else {
+    alert("❌ Wrong Password");
+  }
+}
+
+window.uploadNow = async function(){
+  const file = document.getElementById("fileInput").files[0];
+  if(!file){ alert("Select a file first!"); return; }
+
+  const path = "uploads/" + file.name;
+  const storageRef = ref(storage, path);
+
+  document.getElementById("msg").innerHTML = "Uploading...";
+
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+
+  // Save to JSON file (simple GitHub json)
+  saveToJSON(file.name, url);
+
+  document.getElementById("msg").innerHTML = "✔ Uploaded: " + url;
+}
+
+async function saveToJSON(name,url){
+  const old = await fetch("uploads.json").then(r=>r.json());
+  old.push({name:name, url:url});
+
+  fetch("uploads.json",{
+    method:"PUT",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(old,null,2)
+  });
+}
+</script>
+</body>
+</html>
