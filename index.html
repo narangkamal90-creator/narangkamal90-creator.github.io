@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ushu Music — Videos</title>
+  <meta name="description" content="Ushu Music - All videos (auto from YouTube channel)" />
+
+  <style>
+    :root{
+      --bg:#080808; --card:#0f1112; --muted:#9aa4b2; --accent:#00eaff;
+      --gap:12px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background:linear-gradient(180deg,#000,#07121a); color:#fff;
+      padding:14px;
+    }
+    header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#6ee7b7);display:flex;align-items:center;justify-content:center;color:#022; font-weight:700}
+    h1{font-size:20px;margin:0}
+    .subtitle{color:var(--muted);font-size:13px;margin-top:4px}
+
+    .controls{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+    .input{padding:8px 10px;border-radius:10px;border:0;background:#0b0d0f;color:#fff;outline:0}
+    .btn{padding:9px 12px;border-radius:10px;background:var(--accent);color:#022;border:0;font-weight:600}
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+      gap:var(--gap);
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:10px;padding:8px;border:1px solid rgba(255,255,255,0.03);
+    }
+    .thumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;display:block}
+    .title{font-size:14px;margin-top:8px;color:#e8eef6}
+
+    .muted{color:var(--muted);font-size:13px}
+
+    .modal{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);z-index:50;padding:18px;
+    }
+    .modal .inner{width:100%;max-width:900px;background:transparent}
+    .modal iframe{width:100%;height:56vh;border:0;border-radius:10px}
+    .close{position:absolute;top:16px;right:16px;background:#fff;color:#000;border-radius:999px;padding:8px 10px;font-weight:700}
+
+    @media (max-width:420px){
+      .modal iframe{height:48vh}
+    }
+
+    .notice{padding:12px;border-radius:8px;background:#111;margin-bottom:12px;color:var(--muted)}
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">UM</div>
+    <div>
+      <h1>Ushu Music</h1>
+      <div class="subtitle">All videos from your YouTube channel — auto loaded</div>
+    </div>
+  </header>
+
+  <div class="notice" id="notice">Loading videos...</div>
+
+  <div class="controls" id="controls">
+    <input class="input" id="query" placeholder="Channel search term" />
+    <button class="btn" id="searchBtn">Search Channel</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <!-- modal -->
+  <div id="modal" class="modal">
+    <button id="closeModal" class="close">✕</button>
+    <div class="inner">
+      <iframe id="player" src="" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+  </div>
+
+<script>
+
+/* 🔥 Put your API key here */
+const API_KEY = "AIzaSyBzz0EEcclIDFKf22IXZnrqE9Dbk0FRjyo";
+
+/* Default search (Your Channel) */
+const defaultSearch = "@ushumusic";
+
+const noticeEl = document.getElementById('notice');
+const gridEl = document.getElementById('grid');
+const modal = document.getElementById('modal');
+const player = document.getElementById('player');
+const closeModal = document.getElementById('closeModal');
+const controls = document.getElementById('controls');
+const queryInput = document.getElementById('query');
+const searchBtn = document.getElementById('searchBtn');
+
+
+if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+  noticeEl.innerHTML = '⚠️ API key not set! Edit code → replace YOUR_API_KEY_HERE.';
+} else {
+  queryInput.value = defaultSearch;
+  loadByQuery(defaultSearch);
+}
+
+searchBtn.addEventListener('click', () => {
+  const q = queryInput.value.trim();
+  if (q) loadByQuery(q);
+});
+
+async function loadByQuery(q) {
+  noticeEl.textContent = 'Searching channel...';
+  gridEl.innerHTML = '';
+
+  try {
+    const sUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(q)}&key=${API_KEY}`;
+    const sRes = await fetch(sUrl);
+    const sJson = await sRes.json();
+
+    if (!sJson.items || sJson.items.length === 0) {
+      noticeEl.textContent = 'Channel not found.';
+      return;
+    }
+
+    let channelId = sJson.items[0].snippet.channelId;
+
+    noticeEl.textContent = 'Channel found. Loading videos...';
+
+    const chUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${API_KEY}`;
+    const chRes = await fetch(chUrl);
+    const chJson = await chRes.json();
+    const uploadsId = chJson.items[0].contentDetails.relatedPlaylists.uploads;
+
+    let nextPage = "";
+    const videos = [];
+
+    do {
+      const pUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsId}&maxResults=50&pageToken=${nextPage}&key=${API_KEY}`;
+      const pRes = await fetch(pUrl);
+      const pJson = await pRes.json();
+
+      if (pJson.items) {
+        for (const it of pJson.items) {
+          const sn = it.snippet;
+          videos.push({
+            videoId: sn.resourceId.videoId,
+            title: sn.title,
+            thumb: sn.thumbnails.medium.url
+          });
+        }
+      }
+
+      nextPage = pJson.nextPageToken || "";
+    } while(nextPage);
+
+    noticeEl.textContent = `Loaded ${videos.length} videos`;
+
+    renderGrid(videos);
+
+  } catch (e) {
+    console.log(e);
+    noticeEl.textContent = 'Error loading data.';
+  }
+}
+
+function renderGrid(videos) {
+  gridEl.innerHTML = '';
+  for (const v of videos) {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <a href="#" class="thumb-link" data-id="${v.videoId}">
+        <img class="thumb" src="${v.thumb}" />
+      </a>
+      <div class="title">${v.title}</div>
+    `;
+    gridEl.appendChild(div);
+  }
+
+  document.querySelectorAll('.thumb-link').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      openModal(a.dataset.id);
+    });
+  });
+}
+
+
+/*  
+  UPDATED FUNCTION:
+  ✔ First open YouTube Subscribe Popup
+  ✔ Then automatically open video player
+*/
+function openModal(videoId) {
+
+  // YouTube Subscribe Popup
+  window.open(
+    "https://www.youtube.com/channel/UCOtqEW9noYmq2Xumw-7mGrQ?sub_confirmation=1",
+    "_blank"
+  );
+
+  // Wait 1.2 sec → Then open modal player
+  setTimeout(() => {
+    player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+    modal.style.display = 'flex';
+  }, 1200);
+}
+
+closeModal.addEventListener('click', () => {
+  player.src = "";
+  modal.style.display = 'none';
+});
+
+</script>
+</body>
+</html>
