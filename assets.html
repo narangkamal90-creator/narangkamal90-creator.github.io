@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ushu Music — Assets</title>
+  <style>
+    body{background:#07121a;color:#e6eef6;font-family:Inter,system-ui,Arial;padding:14px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .card{background:#0f1724;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .thumb{width:100%;height:150px;object-fit:cover;border-radius:8px}
+    .small{font-size:13px;color:#9aa4b2}
+    a{color:#00eaff}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ushu Music — Assets</h1>
+    <p class="small">Showing uploaded images, audio and files. Use <code>?videoId=VIDEO_ID</code> to filter.</p>
+  </header>
+
+  <div id="info" class="small">Loading…</div>
+  <div id="list" class="grid" style="margin-top:12px"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    // ---------- SAME Firebase config ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyDRie7jgZ663GR_qiRL-ZSuMapRCSVsncE",
+      authDomain: "ushu-music-site.firebaseapp.com",
+      projectId: "ushu-music-site",
+      storageBucket: "ushu-music-site.firebasestorage.app",
+      messagingSenderId: "1049429943344",
+      appId: "1:1049429943344:web:2266aaa2ad2342cf4479f5",
+      measurementId: "G-17TXD4QNVS"
+    };
+    // -------------------------------------------
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const vid = params.get('videoId'); // optional
+
+    const info = document.getElementById('info');
+    const list = document.getElementById('list');
+
+    async function loadAssets(){
+      info.textContent = 'Loading assets...';
+      list.innerHTML = '';
+      try {
+        if (vid) {
+          // list assets for given videoId
+          const snap = await getDocs(query(collection(db, 'videos', vid, 'assets'), orderBy('createdAt','desc')));
+          if (snap.empty) { info.textContent = 'No assets for this video.'; return; }
+          info.textContent = `Showing assets for video: ${vid}`;
+          snap.forEach(doc => {
+            const d = doc.data();
+            appendCard(d);
+          });
+        } else {
+          // show some recent assets across videos — here we try 'recentUploads' collection
+          const snap = await getDocs(query(collection(db, 'recentUploads'), orderBy('createdAt','desc')));
+          if (snap.empty) { info.textContent = 'No recent assets found. Use admin to upload.'; return; }
+          info.textContent = 'Showing recent uploads';
+          snap.forEach(doc => appendCard(doc.data()));
+        }
+      } catch (err) {
+        console.error(err);
+        info.textContent = 'Failed to load assets. Check Firestore rules & data.';
+      }
+    }
+
+    function appendCard(d){
+      const el = document.createElement('div');
+      el.className = 'card';
+      let inner = '';
+      if (d.type === 'image' || d.type === 'thumbnail') {
+        inner += `<img class="thumb" src="${d.url}" alt="${escapeHtml(d.title)}" />`;
+      } else if (d.type === 'audio' || d.type === 'effect'){
+        inner += `<div class="small">${escapeHtml(d.title)}</div><audio controls style="width:100%" src="${d.url}"></audio>`;
+      } else {
+        inner += `<div class="small">${escapeHtml(d.title)}</div><a href="${d.url}" target="_blank">Open file</a>`;
+      }
+      inner += `<div style="margin-top:8px"><b>${escapeHtml(d.title)}</b><div class="small">${escapeHtml(d.type)} • ${escapeHtml(d.filename||'')}</div></div>`;
+      el.innerHTML = inner;
+      list.appendChild(el);
+    }
+
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    loadAssets();
+  </script>
+</body>
+</html>
