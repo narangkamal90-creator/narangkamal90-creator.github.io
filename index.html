@@ -217,5 +217,25 @@ closeModal.addEventListener('click', () => {
 });
 
 </script>
+  
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRie7jgZ663GR_qiRL-ZSuMapRCSVsncE",
+    authDomain: "ushu-music-site.firebaseapp.com",
+    projectId: "ushu-music-site",
+    storageBucket: "ushu-music-site.firebasestorage.app",
+    messagingSenderId: "1049429943344",
+    appId: "1:1049429943344:web:2266aaa2ad2342cf4479f5",
+    measurementId: "G-17TXD4QNVS"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+
+  console.log("Firebase connected successfully!");
+</script>
 </body>
 </html>
