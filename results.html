@@ -1,0 +1,102 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Search Results — Ushu Music</title><link rel="stylesheet" href="style.css"></head><body>
+<header><div class="logo">Ushu Music</div><nav><a href="index.html">Home</a> • <a href="blog.html">Blog</a> • <a href="about.html">About</a></nav></header>
+<main class="container">
+  <div id="info"></div>
+  <div class="card"><div id="results"></div></div>
+</main>
+<footer class="footer">© 2025 Ushu Music</footer>
+<script src="config.js"></script>
+<script>
+function qs(name){ const u = new URL(window.location.href); return u.searchParams.get(name) || ''; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const sample=[
+  {type:'channel',title:'Ushu Music',desc:'Official Ushu Music channel — lofi & tutorials',thumb:'https://via.placeholder.com/160x90?text=Ushu+Music',channelId:'UCOtqEW9noYmq2Xumw-7mGrQ'},
+  {type:'video',title:'Lofi Beats for Study',desc:'Relaxing lofi beats',thumb:'https://via.placeholder.com/160x90?text=Lofi+Beats',videoId:'dQw4w9WgXcQ'}
+];
+async function render(){
+  const q=qs('q').trim();
+  document.getElementById('info').innerHTML = '<h2>Search Results</h2>' + (q? '<p>Query: <strong>'+esc(q)+'</strong></p>':'<p>Showing channel videos and sample results.</p>');
+  const resEl=document.getElementById('results');
+  resEl.innerHTML = '';
+
+  if(typeof API_KEY === 'string' && API_KEY.length>10){
+    try{
+      // If CHANNEL_ID present, fetch uploads playlist
+      if(typeof CHANNEL_ID === 'string' && CHANNEL_ID.length>5){
+        const chUrl = new URL('https://www.googleapis.com/youtube/v3/channels');
+        chUrl.searchParams.append('part','contentDetails,snippet');
+        chUrl.searchParams.append('id', CHANNEL_ID);
+        chUrl.searchParams.append('key', API_KEY);
+        const chRes = await fetch(chUrl.toString());
+        if(!chRes.ok) throw new Error('Channel fetch failed: '+chRes.status);
+        const chData = await chRes.json();
+        if(chData.items && chData.items.length>0){
+          const uploads = chData.items[0].contentDetails.relatedPlaylists.uploads;
+          const plUrl = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+          plUrl.searchParams.append('part','snippet');
+          plUrl.searchParams.append('playlistId', uploads);
+          plUrl.searchParams.append('maxResults','12');
+          plUrl.searchParams.append('key', API_KEY);
+          const plRes = await fetch(plUrl.toString());
+          if(!plRes.ok) throw new Error('Playlist fetch failed: '+plRes.status);
+          const plData = await plRes.json();
+          if(plData.items && plData.items.length>0){
+            plData.items.forEach(it=>{
+              const sn = it.snippet;
+              const vid = sn.resourceId && sn.resourceId.videoId;
+              const thumb = (sn.thumbnails && (sn.thumbnails.medium || sn.thumbnails.default)).url;
+              const div = document.createElement('div'); div.className='result';
+              div.innerHTML = '<div style="display:flex;gap:12px"><img src="'+thumb+'" style="width:160px;height:90px;object-fit:cover;border-radius:6px"><div><a href="https://www.youtube.com/watch?v='+vid+'" target="_blank">'+esc(sn.title)+'</a><div class="meta">Published on '+esc(sn.publishedAt)+'</div><p>'+esc((sn.description||'').substring(0,280))+'</p></div></div>';
+              resEl.appendChild(div);
+            });
+            return;
+          }
+        }
+      }
+
+      // Fallback: search across YouTube for query
+      if(q.length>0){
+        const sUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+        sUrl.searchParams.append('part','snippet');
+        sUrl.searchParams.append('q', q);
+        sUrl.searchParams.append('type','video,channel');
+        sUrl.searchParams.append('maxResults','12');
+        sUrl.searchParams.append('key', API_KEY);
+        const sRes = await fetch(sUrl.toString());
+        if(!sRes.ok) throw new Error('Search failed: '+sRes.status);
+        const sData = await sRes.json();
+        if(sData.items && sData.items.length>0){
+          sData.items.forEach(it=>{
+            if(it.id.kind==='youtube#video'){
+              const sn = it.snippet; const vid = it.id.videoId; const thumb = (sn.thumbnails && (sn.thumbnails.medium||sn.thumbnails.default)).url;
+              const div = document.createElement('div'); div.className='result';
+              div.innerHTML = '<div style="display:flex;gap:12px"><img src="'+thumb+'" style="width:160px;height:90px;object-fit:cover;border-radius:6px"><div><a href="https://www.youtube.com/watch?v='+vid+'" target="_blank">'+esc(sn.title)+'</a><div class="meta">Video • '+esc(sn.channelTitle)+'</div><p>'+esc((sn.description||'').substring(0,280))+'</p></div></div>';
+              resEl.appendChild(div);
+            } else if(it.id.kind==='youtube#channel'){
+              const sn = it.snippet; const cid = it.id.channelId; const thumb = (sn.thumbnails && (sn.thumbnails.default)).url;
+              const div = document.createElement('div'); div.className='result';
+              div.innerHTML = '<div style="display:flex;gap:12px"><img src="'+thumb+'" style="width:160px;height:90px;object-fit:cover;border-radius:6px"><div><a href="https://www.youtube.com/channel/'+cid+'" target="_blank">'+esc(sn.title)+'</a><div class="meta">Channel</div><p>'+esc((sn.description||'').substring(0,280))+'</p></div></div>';
+              resEl.appendChild(div);
+            }
+          });
+          return;
+        }
+      }
+    } catch(err){ resEl.innerHTML = '<p style="color:#b91c1c">Error fetching YouTube data: '+esc(err.message)+'</p>'; }
+  }
+
+  // show sample results
+  sample.forEach(item=>{
+    const div=document.createElement('div'); div.className='result';
+    if(item.type==='video'){
+      div.innerHTML='<div style="display:flex;gap:12px"><img src="'+item.thumb+'" style="width:160px;height:90px;object-fit:cover;border-radius:6px"><div><a href="https://www.youtube.com/watch?v='+item.videoId+'" target="_blank">'+esc(item.title)+'</a><div class="meta">Sample Video</div><p>'+esc(item.desc)+'</p></div></div>';
+    } else {
+      div.innerHTML='<div style="display:flex;gap:12px"><img src="'+item.thumb+'" style="width:160px;height:90px;object-fit:cover;border-radius:6px"><div><a href="https://www.youtube.com/channel/'+item.channelId+'" target="_blank">'+esc(item.title)+'</a><div class="meta">Sample Channel</div><p>'+esc(item.desc)+'</p></div></div>';
+    }
+    resEl.appendChild(div);
+  });
+}
+
+render();
+</script>
+</body></html>
